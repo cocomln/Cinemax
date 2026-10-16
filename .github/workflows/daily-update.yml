@@ -1,0 +1,65 @@
+name: Cinemax Daily Midnight Refresh Pipeline
+
+# Scheduled to trigger every day at 12:00 AM midnight IST (Asia/Kolkata)
+# Asia/Kolkata is UTC+5:30 -> 12:00 AM IST corresponds to 18:30 UTC (6:30 PM UTC previous day)
+on:
+  schedule:
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+    inputs:
+      force_full_refresh:
+        description: 'Force full re-evaluation of all catalog providers'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: cinemax-daily-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh-pipeline:
+    name: Execute Ingestion, Popularity Scoring & ML Forecasts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Ingestion Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Validate Zero-Cost Configuration & Provider Registry
+        working-directory: backend
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+        run: |
+          python -c "from app.core.config import settings; print('Config validated. Operating at zero-cost.')"
+          python -c "from app.db.init_db import init_db; init_db()"
+
+      - name: Execute Daily Refresh Pipeline (Idempotent)
+        working-directory: backend
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+        run: |
+          python run_initial_ingest.py
+
+      - name: Run Integrity & Provenance Verification Tests
+        working-directory: backend
+        run: |
+          pytest tests/ -v
