@@ -41,6 +41,7 @@ jobs:
       - name: Validate Zero-Cost Configuration & Provider Registry
         working-directory: backend
         env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
@@ -52,6 +53,7 @@ jobs:
       - name: Execute Daily Refresh Pipeline (Idempotent)
         working-directory: backend
         env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}

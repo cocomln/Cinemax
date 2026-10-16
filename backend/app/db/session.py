@@ -1,19 +1,45 @@
+import os
+import shutil
+from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from app.core.config import settings
 
+db_url = settings.DATABASE_URL
+
+# Normalize postgres:// to postgresql:// for SQLAlchemy 2.0
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
 connect_args = {}
-if settings.DATABASE_URL.startswith("sqlite"):
+engine_kwargs = {"echo": False}
+
+if db_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
+    # If running in serverless environment where current working directory is read-only
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        tmp_db = Path("/tmp/cinemax.db")
+        # If /tmp/cinemax.db doesn't exist yet, seed from bundled db if available
+        if not tmp_db.exists():
+            bundled = settings.BASE_DIR / "cinemax.db"
+            if bundled.exists():
+                shutil.copyfile(bundled, tmp_db)
+        db_url = f"sqlite:///{tmp_db}"
+else:
+    # PostgreSQL cloud connection settings (Neon, Supabase, Render)
+    engine_kwargs.update({
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    })
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     connect_args=connect_args,
-    echo=False
+    **engine_kwargs
 )
 
 # Enable foreign keys for SQLite
-if settings.DATABASE_URL.startswith("sqlite"):
+if db_url.startswith("sqlite"):
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
