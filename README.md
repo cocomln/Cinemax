@@ -14,7 +14,7 @@ A free, zero-cost, data-driven entertainment intelligence platform for **movies*
 - **Multi-Category Coverage**: High-integrity historical catalog from **January 1, 1995** through upcoming announced releases covering movies, television series, and anime (films, series, OVAs, ONAs, specials).
 - **Multi-Source Credibility & Provenance**: Displays genuine ratings with direct links, vote counts, scale, and clear distinction between **audience** vs. **critic** reviews (AniList, TVmaze, Wikidata CC0, IMDb, Metacritic, TMDB). Ratings from different providers are never combined or fabricated.
 - **TV & Anime Episode Provenance**: Tracks announced, released, known total, and estimated episodes. Distinguishes unknown episode counts without defaulting to zero.
-- **Transparent Popularity Scoring (0 to 100)**: Measures audience attention and discussion volume—not artistic quality—using a documented formula:
+- **Transparent Popularity Scoring (0 to 100)**: Measures audience attention and discussion volume (not artistic quality) using a documented formula:
   - **30%** Recent Discussion Volume (Log-scaled)
   - **25%** Mention Growth Velocity (% change from prior window)
   - **20%** Discussion Engagement (likes/comments ratio)
