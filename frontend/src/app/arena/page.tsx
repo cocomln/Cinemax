@@ -25,16 +25,22 @@ function ArenaContent() {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchTitles({ limit: 100 }).then((data) => {
-      setTitles(data);
-      if (preselectedTitleId && data.some((t) => t.id === preselectedTitleId)) {
-        setSelectedTitleId(preselectedTitleId);
-      } else if (data.length > 0) {
-        setSelectedTitleId(data[0].id);
-      }
-    });
+    setLoadError(null);
+    fetchTitles({ limit: 100 })
+      .then((data) => {
+        setTitles(data);
+        if (preselectedTitleId && data.some((t) => t.id === preselectedTitleId)) {
+          setSelectedTitleId(preselectedTitleId);
+        } else if (data.length > 0) {
+          setSelectedTitleId(data[0].id);
+        }
+      })
+      .catch((err) => {
+        setLoadError(err.message || "Failed to load titles from the backend service.");
+      });
 
     loadUserData();
   }, [preselectedTitleId]);
@@ -97,6 +103,17 @@ function ArenaContent() {
           </p>
         </div>
       </div>
+
+      {loadError && (
+        <div className="glass-panel p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 text-xs flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Backend Service Notice:</strong> {loadError}. Ensure the backend service is running to fetch titles and submit guesses.
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Game Form (Left 2 cols) */}

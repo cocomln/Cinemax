@@ -10,6 +10,8 @@ import { fetchSourceRegistry, fetchRefreshStatus, triggerRefresh, SourceEntry, R
 export default function SourcesPage() {
   const [sources, setSources] = useState<SourceEntry[]>([]);
   const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
 
@@ -18,12 +20,21 @@ export default function SourcesPage() {
   }, []);
 
   async function loadData() {
-    const [srcData, refData] = await Promise.all([
-      fetchSourceRegistry(),
-      fetchRefreshStatus()
-    ]);
-    setSources(srcData);
-    setRefreshStatus(refData);
+    setLoading(true);
+    setError(null);
+    try {
+      const [srcData, refData] = await Promise.all([
+        fetchSourceRegistry(),
+        fetchRefreshStatus()
+      ]);
+      setSources(srcData);
+      setRefreshStatus(refData);
+    } catch (err: any) {
+      console.error("Sources page loadData error:", err);
+      setError(err.message || "Failed to connect to Cinemax backend service.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleManualTrigger() {
@@ -76,6 +87,24 @@ export default function SourcesPage() {
         <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs flex items-center gap-2">
           <Clock className="w-4 h-4 flex-shrink-0" />
           {triggerMsg}
+        </div>
+      )}
+
+      {error && (
+        <div className="glass-panel p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 text-xs flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <span>
+              <strong>Backend Service Notice:</strong> {error}. Make sure your Cinemax backend service is deployed and running.
+            </span>
+          </div>
+          <button
+            onClick={() => loadData()}
+            className="shrink-0 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded text-red-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Retry
+          </button>
         </div>
       )}
 

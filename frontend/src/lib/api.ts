@@ -1,4 +1,7 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== "undefined" ? "/api" : "http://localhost:8000/api");
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = rawApiUrl
+  ? (rawApiUrl.endsWith("/api") ? rawApiUrl : `${rawApiUrl.replace(/\/+$/, "")}/api`)
+  : (typeof window !== "undefined" ? "/api" : "http://localhost:8000/api");
 
 export interface TitleSummary {
   id: string;
@@ -143,85 +146,54 @@ export async function fetchTitles(params?: {
   if (params?.sort_by) query.append("sort_by", params.sort_by);
   if (params?.limit) query.append("limit", params.limit.toString());
 
-  try {
-    const res = await fetch(`${API_BASE_URL}/titles?${query.toString()}`);
-    if (!res.ok) throw new Error("Failed to fetch titles");
-    return res.json();
-  } catch (e) {
-    console.error("API error fetchTitles:", e);
-    return [];
+  const res = await fetch(`${API_BASE_URL}/titles?${query.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch titles (HTTP ${res.status})`);
   }
+  return res.json();
 }
 
 export async function fetchTrending(limit = 10): Promise<TitleSummary[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/titles/trending?limit=${limit}`);
-    if (!res.ok) throw new Error("Failed to fetch trending");
-    return res.json();
-  } catch (e) {
-    return [];
-  }
+  const res = await fetch(`${API_BASE_URL}/titles/trending?limit=${limit}`);
+  if (!res.ok) throw new Error(`Failed to fetch trending (HTTP ${res.status})`);
+  return res.json();
 }
 
 export async function fetchBreakouts(limit = 10): Promise<TitleSummary[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/titles/breakouts?limit=${limit}`);
-    if (!res.ok) throw new Error("Failed to fetch breakouts");
-    return res.json();
-  } catch (e) {
-    return [];
-  }
+  const res = await fetch(`${API_BASE_URL}/titles/breakouts?limit=${limit}`);
+  if (!res.ok) throw new Error(`Failed to fetch breakouts (HTTP ${res.status})`);
+  return res.json();
 }
 
 export async function fetchUpcoming(limit = 10): Promise<TitleSummary[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/titles/upcoming?limit=${limit}`);
-    if (!res.ok) throw new Error("Failed to fetch upcoming");
-    return res.json();
-  } catch (e) {
-    return [];
-  }
+  const res = await fetch(`${API_BASE_URL}/titles/upcoming?limit=${limit}`);
+  if (!res.ok) throw new Error(`Failed to fetch upcoming (HTTP ${res.status})`);
+  return res.json();
 }
 
 export async function fetchTitleDetail(id: string): Promise<TitleDetail | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/titles/${id}`);
-    if (!res.ok) throw new Error("Failed to fetch title detail");
-    return res.json();
-  } catch (e) {
-    console.error("API error fetchTitleDetail:", e);
-    return null;
-  }
+  const res = await fetch(`${API_BASE_URL}/titles/${id}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to fetch title detail (HTTP ${res.status})`);
+  return res.json();
 }
 
 export async function fetchPredictions(sortBy = "predicted_change"): Promise<any[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/predictions?sort_by=${sortBy}&limit=25`);
-    if (!res.ok) throw new Error("Failed to fetch predictions");
-    return res.json();
-  } catch (e) {
-    return [];
-  }
+  const res = await fetch(`${API_BASE_URL}/predictions?sort_by=${sortBy}&limit=25`);
+  if (!res.ok) throw new Error(`Failed to fetch predictions (HTTP ${res.status})`);
+  return res.json();
 }
 
 export async function fetchSourceRegistry(): Promise<SourceEntry[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/sources`);
-    if (!res.ok) throw new Error("Failed to fetch sources");
-    return res.json();
-  } catch (e) {
-    return [];
-  }
+  const res = await fetch(`${API_BASE_URL}/sources`);
+  if (!res.ok) throw new Error(`Failed to fetch sources (HTTP ${res.status})`);
+  return res.json();
 }
 
 export async function fetchRefreshStatus(): Promise<RefreshStatus | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/refresh/status`);
-    if (!res.ok) throw new Error("Failed to fetch refresh status");
-    return res.json();
-  } catch (e) {
-    return null;
-  }
+  const res = await fetch(`${API_BASE_URL}/refresh/status`);
+  if (!res.ok) throw new Error(`Failed to fetch refresh status (HTTP ${res.status})`);
+  return res.json();
 }
 
 export async function triggerRefresh(): Promise<any> {

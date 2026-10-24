@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   TrendingUp, Sparkles, Film, Tv, PlayCircle, Trophy,
-  ArrowUpRight, ArrowDownRight, Clock, ShieldCheck, ChevronRight
+  ArrowUpRight, ArrowDownRight, Clock, ShieldCheck, ChevronRight,
+  AlertCircle, RefreshCw
 } from "lucide-react";
 import {
   fetchTrending, fetchBreakouts, fetchUpcoming, fetchPredictions,
@@ -20,27 +21,33 @@ export default function Home() {
   const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadData() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [trendData, breakData, upData, predData, refData] = await Promise.all([
+        fetchTrending(12),
+        fetchBreakouts(6),
+        fetchUpcoming(6),
+        fetchPredictions("predicted_change"),
+        fetchRefreshStatus()
+      ]);
+      setTrending(trendData);
+      setBreakouts(breakData);
+      setUpcoming(upData);
+      setPredictions(predData.slice(0, 6));
+      setRefreshStatus(refData);
+    } catch (err: any) {
+      console.error("Home page loadData error:", err);
+      setError(err.message || "Failed to reach the Cinemax backend service.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const [trendData, breakData, upData, predData, refData] = await Promise.all([
-          fetchTrending(12),
-          fetchBreakouts(6),
-          fetchUpcoming(6),
-          fetchPredictions("predicted_change"),
-          fetchRefreshStatus()
-        ]);
-        setTrending(trendData);
-        setBreakouts(breakData);
-        setUpcoming(upData);
-        setPredictions(predData.slice(0, 6));
-        setRefreshStatus(refData);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
   }, []);
 
@@ -113,6 +120,25 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Backend Service Notice Banner if error */}
+      {error && (
+        <div className="glass-panel p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 text-xs flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Backend Service Notice:</strong> {error}. Make sure your Cinemax backend is running and configured via <code className="text-amber-100">NEXT_PUBLIC_API_URL</code> or <code className="text-amber-100">BACKEND_URL</code>.
+            </span>
+          </div>
+          <button
+            onClick={() => loadData()}
+            className="shrink-0 px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded text-amber-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Category Tabs & Popularity Leaderboard */}
       <section className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cinemax-border pb-4">
@@ -148,9 +174,19 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Titles Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredTrending.map((title) => (
+        {/* Titles Grid / States */}
+        {loading ? (
+          <div className="py-16 text-center text-slate-400 text-sm">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3"></div>
+            <p>Loading measured popularity rankings...</p>
+          </div>
+        ) : filteredTrending.length === 0 ? (
+          <div className="py-16 text-center text-slate-400 text-sm glass-panel rounded-xl border border-cinemax-border">
+            No entertainment titles available in this category yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredTrending.map((title) => (
             <Link
               key={title.id}
               href={`/title/${title.id}`}
@@ -227,6 +263,7 @@ export default function Home() {
             </Link>
           ))}
         </div>
+        )}
       </section>
 
       {/* 7-Day ML Prediction Spotlight */}

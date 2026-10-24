@@ -15,20 +15,57 @@ export default function TitleDetailPage() {
   const titleId = params.id as string;
   const [title, setTitle] = useState<TitleDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDetail = () => {
+    if (titleId) {
+      setLoading(true);
+      setError(null);
+      fetchTitleDetail(titleId)
+        .then((data) => {
+          setTitle(data);
+        })
+        .catch((err) => {
+          setError(err.message || "Failed to connect to backend service.");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  };
 
   useEffect(() => {
-    if (titleId) {
-      fetchTitleDetail(titleId).then((data) => {
-        setTitle(data);
-        setLoading(false);
-      });
-    }
+    loadDetail();
   }, [titleId]);
 
   if (loading) {
     return (
       <div className="py-24 text-center text-slate-400 font-mono text-sm">
-        Loading entertainment intelligence for title {titleId}...
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3"></div>
+        <p>Loading entertainment intelligence for title {titleId}...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="glass-panel p-8 rounded-xl border border-red-500/30 bg-red-500/5 text-center space-y-4 max-w-md mx-auto my-24">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/20 text-red-400">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h2 className="text-xl font-bold text-white">Backend Connection Error</h2>
+        <p className="text-slate-400 text-sm">{error}</p>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={loadDetail}
+            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-semibold"
+          >
+            Retry Connection
+          </button>
+          <Link href="/explore" className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-xs font-semibold">
+            Back to Explorer
+          </Link>
+        </div>
       </div>
     );
   }

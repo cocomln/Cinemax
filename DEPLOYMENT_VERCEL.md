@@ -1,96 +1,120 @@
-# Cinemax Vercel & Cloud Deployment Guide 🚀
+# Cinemax Vercel & Production Deployment Guide 🚀
 
-Cinemax is pre-configured to deploy seamlessly on **Vercel** with **zero cost**, hosting both the **Next.js frontend** and the **FastAPI serverless backend** under a single free `*.vercel.app` domain.
-
----
-
-## Architecture on Vercel
-
-```
-                                    +------------------------------+
-                                    |         VERCEL CLOUD         |
-                                    |  https://*.vercel.app        |
-                                    |                              |
-  User Browser ───────────────────> |  - Next.js 14 Frontend       |
-                                    |  - FastAPI (api/index.py)    |
-                                    +--------------+---------------+
-                                                   |
-                                                   | DATABASE_URL (Cloud PostgreSQL)
-                                                   v
-+--------------------------------+  +------------------------------+
-|     GITHUB ACTIONS (Nightly)   |  |   FREE CLOUD POSTGRESQL      |
-|  - Ingestion (AniList/TVmaze)  |─>|   (Neon / Supabase / Render) |
-|  - Popularity Scoring (0-100)  |  |   Shared Persistent Storage  |
-|  - Scikit-Learn Model Training |  +------------------------------+
-+--------------------------------+
-```
+Cinemax is designed to deploy on **Vercel** for the Next.js 14 frontend, paired with a persistent free-tier database and scheduled GitHub Actions machine-learning training.
 
 ---
 
-## 1. Deploy Frontend & FastAPI to Vercel (2 Minutes)
+## 🔍 Root Cause of the Previous Vercel Failure
 
-1. Go to [vercel.com/new](https://vercel.com/new) and log in with your GitHub account.
-2. Under **Import Git Repository**, select **`cocomln/Cinemax`**.
-3. In the configuration screen:
-   - **Framework Preset**: Next.js (automatically detected)
-   - **Root Directory**: `./` (leave default)
+**Error Reported**:
+> `No Next.js version detected. Make sure your package.json has "next" in either dependencies or devDependencies. Also check your Root Directory setting matches the directory of your package.json file.`
+
+**Why this happened**:
+1. When importing a repository into Vercel, Vercel defaults the **Root Directory** to `./` (the repository root).
+2. The root of the repository does not contain a `package.json` (the Next.js application lives inside the [`frontend/`](frontend) directory).
+3. The previous root `vercel.json` specified `"framework": "nextjs"`. When Vercel evaluated the framework preset on the root directory, it checked `./package.json` for `"next"`, failed to find it, and aborted the deployment during the pre-flight phase before running any build commands.
+
+---
+
+## 🛠️ The Correct Vercel Configuration
+
+The Cinemax frontend must be deployed with **`frontend`** set as its Root Directory:
+
+| Setting | Value | Notes |
+| :--- | :--- | :--- |
+| **Root Directory** | `frontend` | **Crucial**: Points Vercel directly to `frontend/package.json` |
+| **Framework Preset** | `Next.js` | Automatically detected by Vercel from `frontend/package.json` |
+| **Build Command** | `next build` (Default) | Native Next.js 14 build command |
+| **Output Directory** | `.next` (Default) | Native Next.js 14 build output |
+| **Install Command** | `npm install` (Default) | Uses `frontend/package-lock.json` |
+
+---
+
+## 📋 Step-by-Step Vercel Deployment Instructions
+
+### 1. Configure the Frontend on Vercel
+1. Log in to [Vercel](https://vercel.com) and go to your dashboard.
+2. If already imported:
+   - Go to your Cinemax project on Vercel.
+   - Navigate to **Settings** -> **General**.
+   - Under **Root Directory**, click **Edit**, type `frontend`, and click **Save**.
+3. If importing fresh:
+   - Click **Add New...** -> **Project**.
+   - Select **`cocomln/Cinemax`**.
+   - In the configuration screen, click **Edit** next to **Root Directory** and select or type **`frontend`**.
+   - Verify that **Framework Preset** displays **Next.js**.
    - Click **Deploy**!
-4. Vercel will build the Next.js pages and provision the FastAPI serverless functions in `api/index.py`.
-5. Your platform is now publicly live at a free HTTPS domain, e.g.:
-   `https://cinemax-cocomln.vercel.app`
 
 ---
 
-## 2. Configure a Free Persistent Database (Zero-Cost)
+## 🌐 Connecting Frontend to Backend in Production
 
-To share data between the Vercel web app and the nightly GitHub Actions ingestion pipeline:
+Cinemax uses a dual-routing architecture:
 
-### Step A: Create a Free PostgreSQL Database
-You can use any free managed PostgreSQL provider (no credit card required):
-- **Neon** ([neon.tech](https://neon.tech)) — Recommended: Generous free serverless tier.
-- **Supabase** ([supabase.com](https://supabase.com)) — Free tier with 500MB storage.
-- **Render** ([render.com](https://render.com)) — Free PostgreSQL instance.
+1. **Server-Side API Proxy (`BACKEND_URL`)**:
+   - `frontend/next.config.js` is pre-configured with rewrites: any request to `/api/*` on your Vercel domain is automatically proxied to `process.env.BACKEND_URL`.
+   - This eliminates browser CORS complications and avoids exposing raw backend URLs.
+2. **Direct Browser API (`NEXT_PUBLIC_API_URL`)**:
+   - `frontend/src/lib/api.ts` automatically normalizes `NEXT_PUBLIC_API_URL` to target `/api` correctly if provided.
+   - If unset, browser requests fall back to `/api` (proxied by Next.js).
 
-Copy your connection string, which looks like:
-`postgresql://user:password@ep-xyz.us-east-2.aws.neon.tech/neondb?sslmode=require`
+### Environment Variables on Vercel
 
-### Step B: Add `DATABASE_URL` to Vercel
-1. In your Vercel project dashboard, go to **Settings** -> **Environment Variables**.
-2. Add a new variable:
-   - **Key**: `DATABASE_URL`
-   - **Value**: `postgresql://...` (your connection string from Step A)
-3. Click **Save** and trigger a redeploy.
+In your Vercel Project Dashboard (**Settings** -> **Environment Variables**), add:
 
-### Step C: Add `DATABASE_URL` to GitHub Secrets
-1. In your GitHub repository at [https://github.com/cocomln/Cinemax](https://github.com/cocomln/Cinemax).
-2. Go to **Settings** -> **Secrets and variables** -> **Actions**.
-3. Click **New repository secret**:
-   - **Name**: `DATABASE_URL`
-   - **Secret**: `postgresql://...` (the same connection string)
-4. Click **Add secret**.
+| Variable Name | Required | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `BACKEND_URL` | Yes (in prod) | Base URL of your FastAPI backend service | `https://cinemax-api.onrender.com` |
+| `NEXT_PUBLIC_API_URL` | Optional | Direct public API URL (if not using rewrite proxy) | `https://cinemax-api.onrender.com/api` |
 
 ---
 
-## 3. Nightly Ingestion & Heavy ML Training
+## ⚙️ Backend Hosting Options (100% Free Tier)
 
-The scheduled pipeline in [`.github/workflows/daily-update.yml`](.github/workflows/daily-update.yml) runs automatically every night at **12:00 AM IST (18:30 UTC)**:
-- Connects to your persistent cloud PostgreSQL database via `secrets.DATABASE_URL`.
-- Pulls fresh metadata from AniList, TVmaze, and Wikidata CC0.
-- Runs deduplication and updates ratings.
-- Computes the 0–100 Popularity Scores.
-- Trains the local `scikit-learn` prediction model without serverless execution limits.
-- Evaluates completed Prediction Arena user guesses.
-- Updates the database so the Vercel web app immediately reflects the latest data every morning.
+FastAPI requires an ASGI server (Uvicorn) and connects to the shared database. Vercel serverless functions have specific constraints:
+- Ephemeral filesystem: Local SQLite databases are wiped on cold restarts.
+- Short timeouts (10 seconds on Vercel Hobby): Batch calculations and model training cannot run serverless.
+- Lifespan connections: Creating connection pools on every cold start can exhaust database limits.
 
-You can also trigger it manually anytime via GitHub Actions:
-👉 Go to **Actions** -> **Cinemax Daily Midnight Refresh Pipeline** -> **Run workflow**.
+Therefore, Cinemax recommends one of the following free-tier backend setups:
+
+### Option A: Render.com Free Web Service (Recommended)
+1. Go to [render.com](https://render.com) and create a free account.
+2. Click **New +** -> **Web Service**.
+3. Connect your GitHub repository: `cocomln/Cinemax`.
+4. Configure:
+   - **Root Directory**: `backend`
+   - **Environment**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - **Environment Variables**:
+     - `DATABASE_URL`: Your cloud PostgreSQL connection string (from Neon or Supabase).
+5. Click **Create Web Service**. Render provides a permanent free HTTPS URL (e.g. `https://cinemax-api.onrender.com`).
+6. Set `BACKEND_URL=https://cinemax-api.onrender.com` in your Vercel project settings!
+
+### Option B: Koyeb / Fly.io / Docker
+Cinemax includes a production [`docker-compose.yml`](docker-compose.yml) and Dockerfiles for one-click deployment on any container platform.
 
 ---
 
-## 4. Zero-Cost Integrity Verification
+## 🗄️ Free Persistent Cloud Database Setup
 
-- **Total Mandatory Cost**: $0.00
-- **Frontend & Serverless API**: Vercel Free Hobby Tier
-- **Scheduled ML Pipeline**: GitHub Actions Free Public Runner Minutes
-- **Data Ingestion**: AniList, TVmaze, and Wikidata (all free public endpoints)
-- **Database**: Free Serverless Postgres (Neon / Supabase) or local SQLite fallback
+To share data between the Vercel frontend, backend, and nightly GitHub Actions runners:
+
+1. Create a free PostgreSQL database at [Neon.tech](https://neon.tech) (recommended: serverless Postgres, zero cost, no card required).
+2. Copy your connection string:
+   `postgresql://[user]:[password]@[host]/[dbname]?sslmode=require`
+3. Add `DATABASE_URL` to:
+   - **Render / Backend Service**: In backend environment variables.
+   - **GitHub Repository Secrets**: Under **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret** (`DATABASE_URL`).
+   - The nightly GitHub Actions pipeline (`.github/workflows/daily-update.yml`) runs at **12:00 AM IST (18:30 UTC)** to refresh the database with fresh data and trained ML models.
+
+---
+
+## 🧪 Verification Checklist
+
+Once deployed:
+1. **Frontend Home**: Visit your `https://*.vercel.app` domain. The UI should load with measured popularity rankings and 7-day ML forecasts.
+2. **Catalog Explorer**: Navigate to `/explore`. Search and filter by genre, year (1995–present), and media type.
+3. **Data Provenance**: Navigate to `/sources`. Inspect the transparency registry for AniList, TVmaze, Wikidata, and TMDB.
+4. **Prediction Arena**: Navigate to `/arena`. Select a title and lock in a 7-day popularity forecast guess.

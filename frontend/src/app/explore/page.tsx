@@ -2,35 +2,42 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, Filter, Compass, ArrowUpRight, ArrowDownRight, Film, Tv, PlayCircle } from "lucide-react";
+import { Search, Filter, Compass, ArrowUpRight, ArrowDownRight, Film, Tv, PlayCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { fetchTitles, TitleSummary } from "@/lib/api";
 
 export default function ExplorePage() {
   const [titles, setTitles] = useState<TitleSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [yearFrom, setYearFrom] = useState<number>(1995);
   const [sortBy, setSortBy] = useState<string>("popularity");
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const data = await fetchTitles({
-          type: selectedType === "all" ? undefined : selectedType,
-          status: selectedStatus === "all" ? undefined : selectedStatus,
-          year_from: yearFrom,
-          search: search || undefined,
-          sort_by: sortBy,
-          limit: 100,
-        });
-        setTitles(data);
-      } finally {
-        setLoading(false);
-      }
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchTitles({
+        type: selectedType === "all" ? undefined : selectedType,
+        status: selectedStatus === "all" ? undefined : selectedStatus,
+        year_from: yearFrom,
+        search: search || undefined,
+        sort_by: sortBy,
+        limit: 100,
+      });
+      setTitles(data);
+    } catch (err: any) {
+      console.error("Explore load error:", err);
+      setError(err.message || "Failed to connect to the Cinemax backend service.");
+      setTitles([]);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       load();
     }, 250);
@@ -128,17 +135,47 @@ export default function ExplorePage() {
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="text-xs text-slate-400 font-mono">
-        Showing <strong>{titles.length}</strong> matching titles
-      </div>
+      {/* Results Count (only if not error) */}
+      {!error && (
+        <div className="text-xs text-slate-400 font-mono">
+          Showing <strong>{titles.length}</strong> matching titles
+        </div>
+      )}
 
-      {/* Grid */}
+      {/* Grid / States */}
       {loading ? (
-        <div className="py-20 text-center text-slate-400 text-sm">Loading titles catalog...</div>
-      ) : titles.length === 0 ? (
         <div className="py-20 text-center text-slate-400 text-sm">
-          No entertainment titles found matching your search criteria.
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3"></div>
+          <p>Loading titles catalog...</p>
+        </div>
+      ) : error ? (
+        <div className="glass-panel p-8 rounded-xl border border-red-500/30 bg-red-500/5 text-center space-y-4 max-w-xl mx-auto my-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/20 text-red-400">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-white font-bold text-lg">Backend Service Unavailable</h3>
+            <p className="text-slate-400 text-sm">{error}</p>
+          </div>
+          <p className="text-slate-500 text-xs">
+            Make sure your Cinemax backend is running and <code className="text-slate-400">NEXT_PUBLIC_API_URL</code> or <code className="text-slate-400">BACKEND_URL</code> is properly configured.
+          </p>
+          <div>
+            <button
+              onClick={() => load()}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Retry Connection
+            </button>
+          </div>
+        </div>
+      ) : titles.length === 0 ? (
+        <div className="glass-panel p-12 rounded-xl border border-cinemax-border text-center space-y-2 max-w-md mx-auto my-12">
+          <p className="text-white font-semibold">No Matching Titles</p>
+          <p className="text-slate-400 text-sm">
+            No entertainment titles found matching your search or filter criteria. Try broadening your filter range or clearing the search bar.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
