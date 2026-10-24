@@ -18,7 +18,7 @@ class Settings(BaseModel):
     MODELS_DIR: Path = MODELS_DIR
     
     # Database configuration (Zero-cost: SQLite default, PostgreSQL optional)
-    DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'cinemax.db'}")
+    DATABASE_URL: str = os.getenv("DATABASE_URL") if os.getenv("DATABASE_URL") and os.getenv("DATABASE_URL").strip() else f"sqlite:///{BASE_DIR / 'cinemax.db'}"
     
     # Scheduling & Timezone
     TIMEZONE: str = "Asia/Kolkata"

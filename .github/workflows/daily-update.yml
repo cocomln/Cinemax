@@ -63,5 +63,4 @@ jobs:
 
       - name: Run Integrity & Provenance Verification Tests
         working-directory: backend
-        run: |
-          pytest tests/ -v
+        run: python -m pytest tests/ -v

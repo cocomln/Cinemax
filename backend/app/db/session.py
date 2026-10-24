@@ -6,6 +6,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from app.core.config import settings
 
 db_url = settings.DATABASE_URL
+if not db_url or not db_url.strip():
+    db_url = f"sqlite:///{settings.BASE_DIR / 'cinemax.db'}"
 
 # Normalize postgres:// to postgresql:// for SQLAlchemy 2.0
 if db_url.startswith("postgres://"):
